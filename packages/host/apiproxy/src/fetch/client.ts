@@ -234,6 +234,23 @@ type UnaryTimeoutPolicy = 'default' | 'caller-signal-only'
 const INTERNAL_BASE = 'http://dsh.internal'
 
 /**
+ * RFC 4122 version 4 UUID backed by `crypto.getRandomValues`, which browsers
+ * expose on insecure origins (LAN HTTP): `crypto.randomUUID` is a
+ * secure-context-only Web API, so a LAN-served UI would otherwise mint ids
+ * only on localhost or HTTPS. Mirrors `@deepseek-ai/dsh-client-connection`'s
+ * `randomUuid`; this package cannot depend on a client package, so the
+ * implementation stays local.
+ */
+function randomUuid(): string {
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  view.setUint8(6, (view.getUint8(6) & 0x0f) | 0x40)
+  view.setUint8(8, (view.getUint8(8) & 0x3f) | 0x80)
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+/**
  * Abstract fetch-carrier client. Subclasses supply the transport (doFetch) and may refine the
  * per-message tap (onEnvelope) — platform aspects stay in subclasses, protocol invariants stay
  * here. Envelope observation is a first-class aspect of this data middle layer: the instance
@@ -296,8 +313,8 @@ export abstract class AbstractApiClient implements IApiClient {
   }
 
   protected mintRpcId(): RpcId {
-    // crypto.randomUUID is a Web API (browser + Node ≥19): keeps this base platform-neutral.
-    return RpcId(crypto.randomUUID())
+    // getRandomValues-backed (not crypto.randomUUID): usable on insecure LAN origins.
+    return RpcId(randomUuid())
   }
 
   /**
