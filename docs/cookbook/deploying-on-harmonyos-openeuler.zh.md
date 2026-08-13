@@ -101,8 +101,9 @@ pnpm dsh --version
 
 ### 3.1 Landlock 启动器
 
+该启动器是 `sandbox-local` 的 workspace 依赖，`pnpm install` 已将其链入 `node_modules`；由于仓库使用 `workspace:` 协议，无法用 npm 在此安装，因此直接探测已安装的包：
+
 ```sh
-npm i -D @deepseek-ai/node-addon-landlock-run
 node --input-type=module -e "import { launcherPath, probe } from '@deepseek-ai/node-addon-landlock-run'; console.log(await probe(launcherPath()))"
 ```
 

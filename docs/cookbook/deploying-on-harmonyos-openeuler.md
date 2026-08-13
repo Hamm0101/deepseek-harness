@@ -101,8 +101,9 @@ The repository's only Linux sandbox backends are bwrap and the Landlock launcher
 
 ### 3.1 Landlock launcher
 
+The launcher is a workspace dependency of `sandbox-local`, so `pnpm install` already links it into `node_modules`; npm cannot install it here (the repository uses the `workspace:` protocol), so probe the installed package directly:
+
 ```sh
-npm i -D @deepseek-ai/node-addon-landlock-run
 node --input-type=module -e "import { launcherPath, probe } from '@deepseek-ai/node-addon-landlock-run'; console.log(await probe(launcherPath()))"
 ```
 
