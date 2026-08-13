@@ -19,7 +19,6 @@ import type { QueueAction, QueueItemId } from './contract/queue.ts'
 import type { ComposerBlocks } from './input/blocks.ts'
 import type { DraftAttachmentId, SessionInputResolver } from './input/contract.ts'
 import type { InputSubmitMode } from './contract/composer-submission.ts'
-import { randomUuid } from '@deepseek-ai/dsh-client-connection/client'
 
 /**
  * The outward conversation face (`ctx.conversation`): the scope-addressed
@@ -57,6 +56,21 @@ export interface IConversation {
    * @returns completion of the page pull.
    */
   loadOlder(): Promise<void>
+}
+
+/**
+ * RFC 4122 version 4 UUID backed by `crypto.getRandomValues`, which browsers
+ * expose on insecure origins (LAN HTTP): `crypto.randomUUID` is a
+ * secure-context-only Web API. Local copy because the client-bundle purity
+ * gate forbids cross-plugin value imports of a shared implementation.
+ */
+function randomUuid(): string {
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16))
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+  view.setUint8(6, (view.getUint8(6) & 0x0f) | 0x40)
+  view.setUint8(8, (view.getUint8(8) & 0x3f) | 0x80)
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }
 
 /** Create one browser-only draft descriptor; only its id enters input state. */

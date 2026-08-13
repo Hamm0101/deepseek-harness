@@ -35,7 +35,6 @@ export {
   AbstractApiClient,
   transportError,
 } from './api.ts'
-export { randomUuid } from './random-uuid.ts'
 
 // Connection loop types are public through ConnectionHandle.start; the
 // controller remains package-internal.
