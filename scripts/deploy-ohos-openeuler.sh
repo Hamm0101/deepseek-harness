@@ -79,6 +79,9 @@ if [ "$node_missing" -eq 1 ] && [ "${DSH_SKIP_NODE:-0}" != "1" ]; then
   sudo ln -sf "/usr/local/node-${node_version}-linux-${arch}/bin/node" /usr/local/bin/node
   sudo ln -sf "/usr/local/node-${node_version}-linux-${arch}/bin/npm" /usr/local/bin/npm
   sudo ln -sf "/usr/local/node-${node_version}-linux-${arch}/bin/npx" /usr/local/bin/npx
+  if [ -x "/usr/local/node-${node_version}-linux-${arch}/bin/corepack" ]; then
+    sudo ln -sf "/usr/local/node-${node_version}-linux-${arch}/bin/corepack" /usr/local/bin/corepack
+  fi
   node -v
 else
   say "Use existing Node.js $(node -v 2>/dev/null || echo '(none)')"
@@ -86,9 +89,13 @@ fi
 
 # ---- 3. pnpm ------------------------------------------------------------
 if [ "$pnpm_missing" -eq 1 ] && [ "${DSH_SKIP_PNPM:-0}" != "1" ]; then
-  say "Install pnpm 11.7.0 via corepack"
-  corepack enable
-  corepack prepare pnpm@11.7.0 --activate
+  say "Install pnpm 11.7.0"
+  if command -v corepack > /dev/null 2>&1; then
+    corepack enable
+    corepack prepare pnpm@11.7.0 --activate
+  else
+    npm install -g pnpm@11.7.0
+  fi
   pnpm -v
 else
   say "Use existing pnpm $(pnpm -v 2>/dev/null || echo '(none)')"

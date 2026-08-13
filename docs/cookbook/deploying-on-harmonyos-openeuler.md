@@ -44,6 +44,7 @@ sudo tar -xJf node-v24.8.0-linux-arm64.tar.xz -C /usr/local
 sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/node /usr/local/bin/node
 sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npm /usr/local/bin/npm
 sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npx /usr/local/bin/npx
+sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/corepack /usr/local/bin/corepack
 ```
 
 Verify:
@@ -57,6 +58,12 @@ node -v   # expect v24.8.0 or later
 ```sh
 corepack enable
 corepack prepare pnpm@11.7.0 --activate
+```
+
+If `corepack` is unavailable, install pnpm through npm instead:
+
+```sh
+npm install -g pnpm@11.7.0
 ```
 
 Verify:

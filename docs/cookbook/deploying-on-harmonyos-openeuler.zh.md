@@ -44,6 +44,7 @@ sudo tar -xJf node-v24.8.0-linux-arm64.tar.xz -C /usr/local
 sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/node /usr/local/bin/node
 sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npm /usr/local/bin/npm
 sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npx /usr/local/bin/npx
+sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/corepack /usr/local/bin/corepack
 ```
 
 验证：
@@ -57,6 +58,12 @@ node -v   # 期望 v24.8.0 或更高
 ```sh
 corepack enable
 corepack prepare pnpm@11.7.0 --activate
+```
+
+如果 `corepack` 不可用，可通过 npm 安装 pnpm：
+
+```sh
+npm install -g pnpm@11.7.0
 ```
 
 验证：
