@@ -131,10 +131,10 @@ fi
 
 # ---- 6. sandbox probe ---------------------------------------------------
 say "Probe sandbox backends (Landlock launcher, bwrap)"
-# The launcher is already a workspace dependency of sandbox-local, so
-# `pnpm install` links it into node_modules; npm cannot install it here
-# (workspace: protocol), so probe the installed package directly.
-(cd "$repo_dir" && node --input-type=module -e \
+# The launcher is a workspace dependency of sandbox-local, so its symlink
+# lives under that package's node_modules, not the repository root; npm
+# cannot install it here (workspace: protocol). Probe from sandbox-local.
+(cd "$repo_dir/packages/sandbox/sandbox-local" && node --input-type=module -e \
   "import { launcherPath, probe } from '@deepseek-ai/node-addon-landlock-run'; console.log('landlock:', await probe(launcherPath()))" \
   || echo "landlock: unusable (probe failed)")
 if ! command -v bwrap > /dev/null 2>&1; then
