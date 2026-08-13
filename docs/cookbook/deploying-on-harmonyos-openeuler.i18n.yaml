@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/cookbook/deploying-on-harmonyos-openeuler.md
-deploying-on-harmonyos-openeuler.md: 1ecd6ff7025f9678a7238c561778031ad7304886
-deploying-on-harmonyos-openeuler.zh.md: a4acda0709afe99782a98e9a137878c106c0e4c2
+deploying-on-harmonyos-openeuler.md: b31ea7c39b8e65903ff260bf1e26ba397ae3cb14
+deploying-on-harmonyos-openeuler.zh.md: 407d573d03aa61a3ed6c0eb2ff9f5acbef0c32c4

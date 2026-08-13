@@ -50,7 +50,7 @@ sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/corepack /usr/local/bin/core
 验证：
 
 ```sh
-node -v   # 期望 v24.8.0 或更高
+node -v   # expect v24.8.0 or later
 ```
 
 ### 1.4 安装 pnpm
@@ -60,16 +60,22 @@ corepack enable
 corepack prepare pnpm@11.7.0 --activate
 ```
 
-如果 `corepack` 不可用，可通过 npm 安装 pnpm：
+如果 `corepack` 不可用，可通过 npm 安装 pnpm。Node 目录归 root 所有，因此全局安装需要 `sudo`：
 
 ```sh
-npm install -g pnpm@11.7.0
+sudo npm install -g pnpm@11.7.0
+```
+
+npm 会把 pnpm 装进 Node 目录的 `bin` 子目录，该目录不在 PATH 中；请与其他 Node 命令一样建立软链：
+
+```sh
+sudo ln -sf "$(npm prefix -g)/bin/pnpm" /usr/local/bin/pnpm
 ```
 
 验证：
 
 ```sh
-pnpm -v   # 期望 11.7.0
+pnpm -v   # expect 11.7.0
 ```
 
 ## 2. 部署仓库

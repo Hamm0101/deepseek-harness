@@ -90,12 +90,18 @@ fi
 # ---- 3. pnpm ------------------------------------------------------------
 if [ "$pnpm_missing" -eq 1 ] && [ "${DSH_SKIP_PNPM:-0}" != "1" ]; then
   say "Install pnpm 11.7.0"
-  if command -v corepack > /dev/null 2>&1; then
+  # corepack writes its shims next to the corepack binary, which lives under
+  # the root-owned Node tree; when that directory is not writable, fall back
+  # to a sudo npm install instead of failing with EACCES.
+  if command -v corepack > /dev/null 2>&1 && [ -w "$(dirname "$(command -v corepack)")" ]; then
     corepack enable
     corepack prepare pnpm@11.7.0 --activate
   else
-    npm install -g pnpm@11.7.0
+    sudo npm install -g pnpm@11.7.0
   fi
+  # npm installs pnpm into the Node tree's bin directory, which is not on
+  # PATH; link it alongside the node/npm/npx symlinks.
+  sudo ln -sf "$(npm prefix -g)/bin/pnpm" /usr/local/bin/pnpm
   pnpm -v
 else
   say "Use existing pnpm $(pnpm -v 2>/dev/null || echo '(none)')"

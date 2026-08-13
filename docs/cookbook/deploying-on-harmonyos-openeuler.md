@@ -60,10 +60,16 @@ corepack enable
 corepack prepare pnpm@11.7.0 --activate
 ```
 
-If `corepack` is unavailable, install pnpm through npm instead:
+If `corepack` is unavailable, install pnpm through npm instead. The Node tree is root-owned, so the global install needs `sudo`:
 
 ```sh
-npm install -g pnpm@11.7.0
+sudo npm install -g pnpm@11.7.0
+```
+
+npm installs pnpm into the Node tree's `bin` directory, which is not on PATH; link it alongside the other Node commands:
+
+```sh
+sudo ln -sf "$(npm prefix -g)/bin/pnpm" /usr/local/bin/pnpm
 ```
 
 Verify:
