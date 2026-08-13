@@ -68,11 +68,9 @@ export const Config: z<ConnectionConfig> = z.object({
 
 /**
  * Methods gated to loopback even on a trusted-host deployment. Native dialogs
- * act on the host machine; the settings and credential domains mutate the
- * user's configuration and secret store, and READING the credential domain is
- * equally privileged — `credentials.describe` reports whether an arbitrary
- * environment-variable name is configured and where from, which is
- * reconnaissance no anonymous caller should have. `trustedHosts` is a
+ * act on the host machine; the settings domain mutates the user's
+ * configuration and the `host.*` methods drive the desktop — privileged
+ * actions no anonymous LAN caller should have. `trustedHosts` is a
  * DNS-rebinding fence, explicitly not authentication, so the whole
  * configuration plane stays loopback-same-origin until a real authentication
  * layer exists. `llm.discoverModels` belongs to that plane on both counts: it
@@ -86,6 +84,9 @@ export const Config: z<ConnectionConfig> = z.object({
  * keys, or key state — and a LAN client's model picker legitimately needs it.
  * `settings.describe` was also removed: the model picker and settings pages
  * read it over a LAN-trusted deployment to render provider configuration.
+ * `credentials.describe`/`set`/`unset` are removed as well — the model
+ * settings page saves, reads, and removes API keys through them, and a
+ * trusted-host deployment may legitimately manage provider credentials.
  */
 const PRIVILEGED_METHODS = new Set([
   // A preset composition names the plugins a session runs, so reading one is
@@ -112,9 +113,6 @@ const PRIVILEGED_METHODS = new Set([
   'settings.update',
   'settings.replace',
   'settings.mutate',
-  'credentials.describe',
-  'credentials.set',
-  'credentials.unset',
   'llm.discoverModels',
 ])
 
