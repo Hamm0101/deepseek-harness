@@ -54,4 +54,22 @@ export class AgentLoopCardController {
   inject(): AgentLoopCardFace {
     return { hooks: { agentLoopCard: this.store }, ...this.form.actions() }
   }
+
+  /**
+   * Whether the namespace is currently served to this client; drives the
+   * configurable tab's empty state.
+   * @returns true while the scope snapshot reports `ready`.
+   */
+  available(): boolean {
+    return this.store.getSnapshot().available
+  }
+
+  /**
+   * Observe the card's availability for the shared tab's visible-card count.
+   * @param listener - invoked after each snapshot change.
+   * @returns the disposer removing this listener.
+   */
+  subscribe(listener: () => void): () => void {
+    return this.store.subscribe(listener)
+  }
 }

@@ -59,10 +59,10 @@ function renderSection(rows: readonly PluginsSettingsTabEntry[]) {
   render(<PluginsSettingsSection {...props} />)
 }
 
-function renderConfigurable(cardCount: number, cards = 'cards') {
+function renderConfigurable(visibleCardCount: number, cards = 'cards') {
   const props = {
     t,
-    cardCount,
+    useVisibleCardCount: (selector: (value: number) => unknown) => selector(visibleCardCount),
     renderSlot: () => <li>{cards}</li>,
   } as unknown as ConfigurablePluginsTabProps
   render(<ConfigurablePluginsTab {...props} />)
@@ -152,14 +152,14 @@ describe('PluginsSettingsSection', () => {
 })
 
 describe('ConfigurablePluginsTab', () => {
-  it('says so when no plugin contributed a card', () => {
+  it('says so when no card is visible', () => {
     renderConfigurable(0)
 
     expect(screen.getByText(en.empty)).toBeTruthy()
     expect(screen.queryByText('cards')).toBeNull()
   })
 
-  it('renders the card list once a plugin contributed one', () => {
+  it('renders the card list once at least one card is visible', () => {
     renderConfigurable(1)
 
     expect(screen.getByText('cards')).toBeTruthy()

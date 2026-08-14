@@ -17,6 +17,7 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // through the service, never a value import (client bundle purity gate).
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the ctx.remote Context merge and the forwarded-event key face.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
@@ -119,16 +120,26 @@ export function apply(ctx: ClientContext): void {
   }, PluginsSettingsSection))
 
   // The existing configuration page is one ordinary tab. It keeps ownership
-  // of the card slot and the three shipped card contributions below.
+  // of the card slot and the three shipped card contributions below. The tab's
+  // empty state counts VISIBLE cards — namespaces this deployment both
+  // registers and serves — so the count is a live projection of the three
+  // controllers' availability rather than a static ledger length: a namespace
+  // a deployment does not expose renders nothing, and a tab that shows only
+  // those would report an empty configuration surface instead of an empty list.
+  const visibleCardCount: HostObservable<number> = {
+    getSnapshot: () => [bash, agentLoop, webSearch].filter(card => card.available()).length,
+    subscribe: (listener) => {
+      const offs = [bash, agentLoop, webSearch].map(card => card.subscribe(listener))
+      return () => { offs.forEach(off => off()) }
+    },
+  }
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({
     name: 'settings.plugins.tab',
     id: 'configurable',
     order: 0,
     label: () => t('configurableTab'),
     locale: NS,
-    inject: (): ConfigurablePluginsTabInjected => ({
-      cardCount: ctx.slots.entries('settings.plugin.item').length,
-    }),
+    inject: (): ConfigurablePluginsTabInjected => ({ hooks: { visibleCardCount } }),
     children: { 'settings.plugin.item': { kind: 'list', scope: 'root' } },
   }, ConfigurablePluginsTab))
 

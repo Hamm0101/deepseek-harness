@@ -76,7 +76,7 @@ describe('ui-settings-plugins apply', () => {
       .toEqual(['bash', 'agent-loop', 'web-search'])
   })
 
-  it('injects a live tab projection, a card count, and one business face per card', async () => {
+  it('injects a live tab projection, a visible-card count, and one business face per card', async () => {
     const { ctx, slots } = await bench()
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
@@ -99,7 +99,14 @@ describe('ui-settings-plugins apply', () => {
     unsubscribe()
 
     const tab = slots.entries('settings.plugins.tab')[0]!
-    expect((tab.inject as unknown as () => ConfigurablePluginsTabInjected)()).toEqual({ cardCount: 3 })
+    const tabFace = (tab.inject as unknown as () => ConfigurablePluginsTabInjected)()
+    // The empty state counts VISIBLE cards, not registered ones: the describe
+    // stub here never succeeds, so none of the three registered namespaces is
+    // served to this client and the tab reports zero — a deployment that
+    // exposes nothing sees the empty copy, not a blank list of namespaces that
+    // render nothing.
+    expect(tabFace.hooks.visibleCardCount.getSnapshot()).toBe(0)
+    expect(typeof tabFace.hooks.visibleCardCount.subscribe).toBe('function')
     for (const entry of slots.entries('settings.plugin.item')) {
       const face = (entry as { inject?: () => unknown }).inject?.() as { hooks: Record<string, unknown> }
       // Each card injects exactly one snapshot store plus its own actions.
