@@ -28,6 +28,7 @@ async function bench() {
   new TestRemote(ctx)
   ctx.provide('connection', {
     isLoopback: true,
+    hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
     api: {
       settings: { describe: vi.fn(() => Promise.resolve({ rpcId: 's', result: { ok: false, error: {} } })) },
       credentials: { describe: describeCredentials },

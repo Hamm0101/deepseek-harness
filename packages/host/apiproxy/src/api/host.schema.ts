@@ -18,6 +18,13 @@ export const hostDescribeValueSchema = z.object({
   model: z.string().optional(),
   attachedSessions: z.number().int().nonnegative(),
   canOpenPath: z.boolean(),
+  /**
+   * Whether this request's authority is configuration-trusted (loopback, or a
+   * declared `trustedHosts` entry). Present only on the browser HTTP path,
+   * where the client-connection /api fence can judge the request source; an
+   * in-process carrier never sets it, and consumers fall back to loopback.
+   */
+  configurationTrusted: z.boolean().optional(),
 }) satisfies z.ZodType<Wire<ResponseValue<'host.describe'>>>
 
 /** host.pickDirectory request payload (empty object literal). */

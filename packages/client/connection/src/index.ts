@@ -68,16 +68,16 @@ export const Config: z<ConnectionConfig> = z.object({
 
 /**
  * Methods gated to loopback even on a trusted-host deployment. Native dialogs
- * act on the host machine; the settings domain mutates the user's
- * configuration and the `host.*` methods drive the desktop — privileged
- * actions no anonymous LAN caller should have. `trustedHosts` is a
- * DNS-rebinding fence, explicitly not authentication, so the whole
- * configuration plane stays loopback-same-origin until a real authentication
- * layer exists. `llm.discoverModels` belongs to that plane on both counts: it
- * carries a draft credential, and it makes the HOST issue a GET to a URL the
- * caller chose and reports back the status or the parsed body — an anonymous
- * LAN caller would have a probe for whatever the host can reach and the
- * browser cannot.
+ * act on the host machine; the `host.*` methods drive the desktop, preset
+ * management rearranges the roster, and `settings.openDocument` opens a file
+ * on the host desktop — privileged actions no anonymous LAN caller should
+ * have. `trustedHosts` is a DNS-rebinding fence, explicitly not
+ * authentication, so these stay loopback-same-origin until a real
+ * authentication layer exists. `llm.discoverModels` belongs to that plane on
+ * both counts: it carries a draft credential, and it makes the HOST issue a
+ * GET to a URL the caller chose and reports back the status or the parsed
+ * body — an anonymous LAN caller would have a probe for whatever the host can
+ * reach and the browser cannot.
  *
  * The model catalog (`llm.providers`, `llm.models`) is deliberately NOT here:
  * it carries provider ids, display names, and model lists — no endpoints,
@@ -110,10 +110,23 @@ const PRIVILEGED_METHODS = new Set([
   'host.pickDirectory',
   'host.openPath',
   'settings.openDocument',
+  'llm.discoverModels',
+])
+
+/**
+ * Configuration writes: the plugin-configuration page's `settings.update` /
+ * `replace` / `mutate`, served to any request the deployment's own
+ * `trustedHosts` fence admits. Unlike {@link PRIVILEGED_METHODS} these are not
+ * pinned to loopback — a deployment that explicitly serves a LAN authority
+ * (via `--trusted-host` or the CLI's derived LAN IPs) intends its remote
+ * browser to manage the sections the plugin page edits. A deployment with no
+ * declared trust list keeps the original loopback-only boundary, because
+ * `isTrustedApiRequest` with an empty list admits only loopback.
+ */
+const CONFIGURATION_WRITE_METHODS = new Set([
   'settings.update',
   'settings.replace',
   'settings.mutate',
-  'llm.discoverModels',
 ])
 
 /**
@@ -141,8 +154,8 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
         ? pathname.slice(API_PATH.length + 1)
         : undefined
       if (method !== undefined
-        && PRIVILEGED_METHODS.has(method)
-        && !isTrustedApiRequest(request, [])) {
+        && ((PRIVILEGED_METHODS.has(method) && !isTrustedApiRequest(request, []))
+          || (CONFIGURATION_WRITE_METHODS.has(method) && !isTrustedApiRequest(request, trustedHosts)))) {
         return new Response('forbidden', { status: 403 })
       }
       if (request.method === 'GET' && (pathname === MUX_EVENTS_PATH || pathname === HOST_EVENTS_PATH)) {
@@ -153,7 +166,22 @@ export function apply(ctx: Context, config?: ConnectionConfig): void {
       }
       const apiProxy = ctx.get('apiProxy')
       if (apiProxy === undefined) return new Response('not found', { status: 404 })
-      return toFetchHandler(apiProxy).fetch(request)
+      const response = await toFetchHandler(apiProxy).fetch(request)
+      // The browser HTTP path is the only layer that knows the request source
+      // (the api-proxy sees only rpcId+payload), so the configuration-trust
+      // flag is injected here rather than in the api-proxy: a describe served
+      // to a loopback or declared trustedHosts browser reports true, and
+      // settings consumers use it in place of a bare loopback test.
+      if (method === 'host.describe' && response.status === 200) {
+        const envelope = (await response.json()) as {
+          result?: { ok?: boolean; value?: Record<string, unknown> }
+        }
+        if (envelope.result?.ok === true && envelope.result.value !== undefined) {
+          envelope.result.value.configurationTrusted = isTrustedApiRequest(request, trustedHosts)
+        }
+        return Response.json(envelope)
+      }
+      return response
     },
   })
   const route: WebRoute = {

@@ -376,6 +376,7 @@ describe('SettingsScopeBinder.bind', () => {
     ctx.provide('connection', {
       api: { settings: { describe: describeCall } },
       isLoopback: true,
+      hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
     } as never)
     let scope!: SettingsScope<UiTestSettings>
     new TestRemote(ctx)
@@ -408,6 +409,7 @@ describe('SettingsScopeBinder.bind', () => {
     ctx.provide('connection', {
       api: { settings: { describe: describeCall } },
       isLoopback: false,
+      hostDescription: { getSnapshot: () => undefined, subscribe: () => () => {} },
     } as never)
     let scope!: SettingsScope<UiTestSettings>
     new TestRemote(ctx)

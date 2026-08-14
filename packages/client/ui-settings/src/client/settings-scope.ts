@@ -49,12 +49,14 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
   /**
    * @param api - settings wire face.
    * @param spec - namespace identity and optional narrowing decoder.
-   * @param persistence - remote browsers remain process-local because settings RPCs are loopback-only.
+   * @param persistence - remote browsers remain process-local (memory) unless
+   * the connection handshake proves this authority is configuration-trusted;
+   * see {@link adoptHost}.
    */
   constructor(
     private readonly api: SettingsFace,
     private readonly spec: SettingsScopeSpec<T>,
-    private readonly persistence: 'host' | 'memory' = 'host',
+    private persistence: 'host' | 'memory' = 'host',
   ) {
     this.store = createSnapshotStore<SettingsScopeSnapshot<T>>({
       status: persistence === 'host' ? 'loading' : 'unavailable',
@@ -65,6 +67,20 @@ export class SettingsScopeController<T> implements SettingsScope<T> {
       writable: false,
       mode: persistence,
     })
+  }
+
+  /**
+   * Upgrade a memory-mode scope to host transport after the connection
+   * handshake proved this browser is configuration-trusted (loopback, or a
+   * declared `trustedHosts` authority). A remote browser whose deployment
+   * serves it may then read and write the namespaces the plugin page edits.
+   * @returns whether the scope was upgraded (false when already host or disposed).
+   */
+  adoptHost(): boolean {
+    if (this.persistence === 'host' || this.disposed) return false
+    this.persistence = 'host'
+    void this.load()
+    return true
   }
 
   /** @returns the current sync snapshot (stable reference until the next change). */
@@ -245,19 +261,32 @@ export class SettingsScopeBinder extends Service {
   bind<T>(spec: SettingsScopeSpec<T>): SettingsScope<T> {
     const ctx = this.ctx
     const connection = ctx.get('connection') as ConnectionHandle
+    // A loopback page is configuration-trusted from the start; a remote page
+    // only becomes so once the deployment's own fence says the browser's
+    // authority is a declared trustedHosts entry (published by the handshake).
+    const trusted = connection.isLoopback
+      || connection.hostDescription.getSnapshot()?.configurationTrusted === true
     const controller = new SettingsScopeController<T>(
       connection.api,
       spec,
-      connection.isLoopback ? 'host' : 'memory',
+      trusted ? 'host' : 'memory',
     )
     ctx.effect(() => {
       const refresh = (namespace?: string): void => {
         if (namespace !== undefined && namespace !== spec.namespace) return
         void controller.load()
       }
+      // A remote browser whose handshake lands after this bind upgrades the
+      // memory scope to host transport once the deployment declares it trusted.
+      const offDescription = connection.hostDescription.subscribe(() => {
+        if (connection.hostDescription.getSnapshot()?.configurationTrusted === true) {
+          controller.adoptHost()
+        }
+      })
       const disposers = [
         (ctx.get('remote') as Context['remote']).$on('settings/document-updated', refresh),
         ctx.on('connection/reset', () => { refresh() }),
+        offDescription,
       ]
       void controller.load()
       return async () => {

@@ -50,6 +50,13 @@ export interface HostApi {
     model?: string
     attachedSessions: number
     canOpenPath: boolean
+    /**
+     * Whether the browser that issued this describe is configuration-trusted
+     * (loopback, or a declared `trustedHosts` authority). The api-proxy cannot
+     * know the request source — the client-connection /api fence injects this
+     * on the browser HTTP path; in-process carriers leave it absent.
+     */
+    configurationTrusted?: boolean
   }>>
 
   /**
