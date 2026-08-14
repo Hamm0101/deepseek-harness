@@ -34,6 +34,54 @@ pnpm run build
 pnpm dsh web
 ```
 
+## 鸿蒙 PC（openEuler）部署
+
+本 fork 增加了对鸿蒙 PC 的部署支持：华为「融合开发引擎」提供 openEuler Linux 环境，`dsh` 无需改动即可运行。完整指南见 [cookbook 文档](docs/cookbook/deploying-on-harmonyos-openeuler.zh.md)；一键安装脚本为 [`scripts/deploy-ohos-openeuler.sh`](scripts/deploy-ohos-openeuler.sh)。
+
+### 相对上游的改动
+
+| 领域 | 改动 |
+|---|---|
+| 部署脚本 | `scripts/deploy-ohos-openeuler.sh`：工具链、Node.js 24、pnpm、clone、构建、沙箱探测 |
+| Node/pnpm 安装 | 从 Node.js 压缩包链接 `corepack`；回退到 `sudo npm install -g pnpm` 并补 PATH 软链 |
+| 沙箱探测 | 从 `sandbox-local`（workspace 依赖）探测 Landlock 启动器；自动安装 `bubblewrap`；不可用时 fail closed |
+| Web UI 局域网访问 | `crypto.randomUUID` 仅限安全上下文；改用 `crypto.getRandomValues` 生成 id，使局域网 UI 可用 |
+| 信任栅栏 | 将 `settings.describe` 与 `credentials.describe/set/unset` 移到 `trustedHosts` 栅栏，使模型页在局域网可用 |
+
+### 安装
+
+前置条件：鸿蒙 PC（HarmonyOS 6.0 及以上）+ 已安装「融合开发引擎」，提供 openEuler 环境。引擎网络模式必须为 NAT。
+
+```sh
+sh scripts/deploy-ohos-openeuler.sh
+```
+
+脚本会安装工具链与 Node.js 24，然后执行 clone、install、build 与沙箱探测。手动安装：
+
+```sh
+sudo dnf install -y git make gcc-c++ python3 binutils tar xz
+curl -fsSLO https://nodejs.org/dist/v24.8.0/node-v24.8.0-linux-arm64.tar.xz
+sudo tar -xJf node-v24.8.0-linux-arm64.tar.xz -C /usr/local
+sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/node /usr/local/bin/node
+sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npm /usr/local/bin/npm
+sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npx /usr/local/bin/npx
+sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/corepack /usr/local/bin/corepack
+corepack enable
+corepack prepare pnpm@11.7.0 --activate
+git clone https://github.com/Hamm0101/deepseek-harness.git
+cd deepseek-harness
+pnpm install
+pnpm build
+```
+
+### 运行
+
+```sh
+pnpm dsh web
+```
+
+Web UI 默认服务在 `http://127.0.0.1:3080`。若要从鸿蒙浏览器跨 openEuler 的 NAT 网络访问，请通过 profile patch 绑定所有接口，再打开 `http://<openEuler-ip>:3080`；host 绑定与已知限制（仅 NAT 网络、无 systemctl、Landlock 不可用）见 cookbook 指南。
+
 ## 社区与支持
 
 - 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。
