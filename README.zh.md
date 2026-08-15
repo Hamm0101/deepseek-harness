@@ -1,109 +1,72 @@
-# DeepSeek Harness
+# DeepSeek Harness — 鸿蒙版
 
 [English](README.md) | 中文
 
-DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
+本仓库是 [deepseek-ai/DeepSeek-Harness](https://github.com/deepseek-ai/deepseek-harness) 的 **fork**，在其基础上增加了对**鸿蒙 PC 的一等部署支持**。fork 保持上游代码不变（一切皆插件，由 [Cordis](https://github.com/cordiverse/cordis) 驱动），在之上叠加部署机制，使完整的 DeepSeek Harness（`dsh`）Web UI 可以通过**两条路径**运行在鸿蒙 PC 上：
 
-它采用**一切皆插件**的架构，并由 [Cordis](https://github.com/cordiverse/cordis) 驱动，其设计参见论文 [_A Programming Paradigm for Spatiotemporal Composability_](https://github.com/cordiverse/paper)。
+| 路径 | 引擎 | 文档 | 安装器 |
+|---|---|---|---|
+| **A — 鸿蒙原生部署**（推荐） | 无——直接在鸿蒙宿主上运行 | [deploying-on-harmonyos-native.md](docs/cookbook/deploying-on-harmonyos-native.md) | [`scripts/dsh-hmos`](scripts/dsh-hmos) + [`scripts/dsh-hmos-patch.mjs`](scripts/dsh-hmos-patch.mjs) |
+| **B — openEuler** | 华为融合开发引擎 | [deploying-on-harmonyos-openeuler.zh.md](docs/cookbook/deploying-on-harmonyos-openeuler.zh.md) | [`scripts/deploy-ohos-openeuler.sh`](scripts/deploy-ohos-openeuler.sh) |
 
-## 开发者预览
+## 为什么有这个 fork
 
-DeepSeek Harness 目前处于 _开发者预览_ 阶段，正在快速迭代。**未来将出现破坏兼容性的变更。**
+`dsh` 上游没有鸿蒙支持：npm 运行时自带的原生模块（node-pty、koffi、sharp、ripgrep）没有 `openharmony-arm64` 二进制；鸿蒙文件系统（hmdfs）拒绝硬链接且 chmod 无效；进程沙箱无可用后端（无 bubblewrap、无 Landlock、无 user namespaces）。本 fork 通过以下方式让它在鸿蒙 PC（HongMeng Kernel，aarch64）上可用：
+
+- **一键管理脚本** —— [`scripts/dsh-hmos`](scripts/dsh-hmos)：`start` / `stop` / `status` / `restart` / `update` / `repatch` / `exec`。`start` 用 `setsid` 拉起 Web UI，带 PID 文件与 HTTP 探活；`update` 升级 npm 包、重放全部补丁、重建 node-pty、重装 sharp-wasm32 并重启——全程幂等。
+- **10 处补丁的幂等补丁集** —— [`scripts/dsh-hmos-patch.mjs`](scripts/dsh-hmos-patch.mjs)（通过 `dsh-hmos repatch` 执行）。补丁位于 node_modules，升级后自动重打：
+
+| 补丁 | 模块 | 修复内容 |
+|---|---|---|
+| P1 | `dsh-sandbox-local` | 惰性加载仅 win32 使用的 windows-acl runner，**非 Windows 永不加载 koffi**（koffi 无 openharmony 二进制） |
+| P2a/b | `dsh-session-persistence-jsonl` | 会话原子发布用 `rename()` 替换 `link()`（hmdfs 无硬链接 → EPERM） |
+| P3 | `dsh-credentials-local` | openharmony 上跳过 mode-660 检查（hmdfs 忽略 chmod） |
+| P4 | `@vscode/ripgrep` | 回退到 harmonybrew 安装的 `rg`（无平台包，strip 过的 ELF 无法执行） |
+| P5 | `dsh-fs-local` | `linkFile` 在 EPERM（hmdfs）时回退 `rename`，同时保留 no-replace 不覆盖语义 |
+| P6a/b | `dsh-attachment-local` | 内容寻址附件同样做 link→rename 回退 |
+| P7 | `dsh-attachment-local` | 祖先目录 fsync 上行遇 EPERM/EACCES/EROFS 时停止——修复图片消息被误报为 `agent-busy` |
+| P8 | `dsh-attachment-local` | rename 发布后容忍 `unlink` 的 ENOENT |
+
+- **原生模块处理** —— node-pty 用 ohos-sdk 的 clang 工具链从源码构建（`node-gyp` + `make` + python3）；sharp 换成 WebAssembly 版 `@img/sharp-wasm32`。
+- **沙箱说明** —— 鸿蒙无可用沙箱后端，部署以 `DSH_PERMISSION_MODE=danger-full-access` 运行（上游官方部署开关），并通过 profile 的 `cordis.patch.yml` 把默认权限预设钉为 `danger-full-access`。
 
 ## 运行
 
-### 通过 `npm` 运行
-
-安装 `Node.js`，然后运行：
+### 通过 `npm` 运行（任意受支持的主机）
 
 ```sh
 npx @deepseek-ai/dsh web
 ```
 
-该命令会启动 Web UI，默认地址为 `http://127.0.0.1:3080`。详见 [Web UI 指南](docs/user/guide/index.md)。
+默认在 `http://127.0.0.1:3080` 提供 Web UI。详见 [Web UI 指南](docs/user/guide/index.md)。
 
-### 从源码运行
+### 在鸿蒙 PC 上运行
 
-如需从仓库源码运行：
+按[鸿蒙原生 cookbook](docs/cookbook/deploying-on-harmonyos-native.md)（路径 A）或 [openEuler cookbook](docs/cookbook/deploying-on-harmonyos-openeuler.zh.md)（路径 B）部署。安装后用以下命令管理服务：
 
 ```sh
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
-pnpm install
-pnpm run build
-pnpm dsh web
+dsh-hmos start      # 默认 http://127.0.0.1:3080
+dsh-hmos status
+dsh-hmos stop
+dsh-hmos update     # 升级 dsh + 重打补丁 + 重建 node-pty + 重启
 ```
 
-## 鸿蒙 PC（openEuler）部署
-
-本 fork 增加了对鸿蒙 PC 的部署支持：华为「融合开发引擎」提供 openEuler Linux 环境，`dsh` 无需改动即可运行。完整指南见 [cookbook 文档](docs/cookbook/deploying-on-harmonyos-openeuler.zh.md)；一键安装脚本为 [`scripts/deploy-ohos-openeuler.sh`](scripts/deploy-ohos-openeuler.sh)。
-
-### 相对上游的改动
+## 相对上游的改动
 
 | 领域 | 改动 |
 |---|---|
-| 部署脚本 | `scripts/deploy-ohos-openeuler.sh`：工具链、Node.js 24、pnpm、clone、构建、沙箱探测 |
-| Node/pnpm 安装 | 从 Node.js 压缩包链接 `corepack`；回退到 `sudo npm install -g pnpm` 并补 PATH 软链 |
-| 沙箱探测 | 从 `sandbox-local`（workspace 依赖）探测 Landlock 启动器；自动安装 `bubblewrap`；不可用时 fail closed |
+| 鸿蒙原生部署 | `docs/cookbook/deploying-on-harmonyos-native.md` + `scripts/dsh-hmos` + `scripts/dsh-hmos-patch.mjs`：harmonybrew 装依赖、node-pty 源码构建、sharp-wasm32、10 处补丁、服务管理 |
+| openEuler 部署 | `docs/cookbook/deploying-on-harmonyos-openeuler.md` + `scripts/deploy-ohos-openeuler.sh`：工具链、Node.js 24、pnpm、clone、构建、沙箱探测 |
+| Node/pnpm 安装 | 从 Node.js 压缩包链接 `corepack`；回退到 `sudo npm install -g pnpm` 并补 PATH 软链（openEuler 路径） |
 | Web UI 局域网访问 | `crypto.randomUUID` 仅限安全上下文；改用 `crypto.getRandomValues` 生成 id，使局域网 UI 可用 |
 | 信任栅栏 | 将 `settings.describe` 与 `credentials.describe/set/unset` 移到 `trustedHosts` 栅栏，使模型页在局域网可用 |
 
-### 安装
-
-前置条件：鸿蒙 PC（HarmonyOS 6.0 及以上）+ 已安装「融合开发引擎」，提供 openEuler 环境。引擎网络模式必须为 NAT。
-
-```sh
-sh scripts/deploy-ohos-openeuler.sh
-```
-
-脚本会安装工具链与 Node.js 24，然后执行 clone、install、build 与沙箱探测。手动安装：
-
-```sh
-sudo dnf install -y git make gcc-c++ python3 binutils tar xz
-curl -fsSLO https://nodejs.org/dist/v24.8.0/node-v24.8.0-linux-arm64.tar.xz
-sudo tar -xJf node-v24.8.0-linux-arm64.tar.xz -C /usr/local
-sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/node /usr/local/bin/node
-sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npm /usr/local/bin/npm
-sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/npx /usr/local/bin/npx
-sudo ln -sf /usr/local/node-v24.8.0-linux-arm64/bin/corepack /usr/local/bin/corepack
-corepack enable
-corepack prepare pnpm@11.7.0 --activate
-git clone https://github.com/Hamm0101/deepseek-harness.git
-cd deepseek-harness
-pnpm install
-pnpm build
-```
-
-### 运行
-
-```sh
-pnpm dsh web
-```
-
-Web UI 默认服务在 `http://127.0.0.1:3080`。若要从鸿蒙浏览器跨 openEuler 的 NAT 网络访问，请通过 profile patch 绑定所有接口，再打开 `http://<openEuler-ip>:3080`；host 绑定与已知限制（仅 NAT 网络、无 systemctl、Landlock 不可用）见 cookbook 指南。
-
 ## 社区与支持
 
-- 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。
+- 上游反馈与 bug 报告：请走 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions)。
+- 本 fork 发现的鸿蒙特有问题（如图片消息 `agent-busy` 误报）：见 [docs/cookbook/upstream-issue-harmonyos-attachment-busy.md](docs/cookbook/upstream-issue-harmonyos-attachment-busy.md)。
 - 为你的插件仓库添加 [`dsh-plugin`](https://github.com/topics/dsh-plugin) 话题，便于被发现。
-- 欢迎加入 DeepSeek Harness 企微群：扫码添加企微小助手并填写入群问卷，完成后小助手会邀请你入群。
-
-<table>
-  <thead>
-    <tr>
-      <th align="center">企微小助手</th>
-      <th align="center">入群问卷</th>
-      <th align="center">微信公众号</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center"><img src="assets/community-wecom-assistant.png" alt="DeepSeek Harness 企微小助手二维码" width="180" height="180"></td>
-      <td align="center"><a href="https://trtgsjkv6r.feishu.cn/share/base/form/shrcnIt5twSVdLGD52KJBckGCgg"><img src="assets/community-wecom-survey.png" alt="DeepSeek Harness 入群问卷二维码" width="180" height="180"></a></td>
-      <td align="center"><img src="assets/community-wechat-official-account.png" alt="DeepSeek Harness 团队微信公众号二维码" width="180" height="180"></td>
-    </tr>
-  </tbody>
-</table>
+- 欢迎加入 DeepSeek Harness 社区（渠道见上游 README）。
 
 ## 参与贡献
 
