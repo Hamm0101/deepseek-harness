@@ -166,18 +166,25 @@ repatch_cmd() {
 
 # ---------- update ----------
 update_cmd() {
-  log "1/5 停止当前实例..."
+  log "1/6 停止当前实例..."
   stop_cmd
-  log "2/5 npm 升级 @deepseek-ai/dsh (--ignore-scripts)..."
+  log "2/6 npm 升级 @deepseek-ai/dsh (--ignore-scripts)..."
   "$NPM" install -g @deepseek-ai/dsh --ignore-scripts --registry="$REGISTRY" || die "npm install 失败"
-  log "3/5 重打 4 处补丁..."
+  log "3/6 重打全部补丁 (P1-P9)..."
   repatch_cmd || die "补丁重放失败, 请人工检查"
-  log "4/5 重建 node-pty 并重装 sharp-wasm32..."
+  log "4/6 重建 node-pty 并重装 sharp-wasm32..."
   ( cd "$DSH_DIR/node_modules/node-pty" \
       && CC="$CLANG" CXX="$CLANGXX" "$NODE" "$NODE_GYP" rebuild ) || die "node-pty 构建失败"
   ( cd "$DSH_DIR" \
       && "$NPM" install @img/sharp-wasm32 --ignore-scripts --registry="$REGISTRY" --no-save ) || die "sharp-wasm32 安装失败"
-  log "5/5 重启服务..."
+  log "5/6 重建 koffi native (subprocess-local 依赖)..."
+  command -v cmake >/dev/null 2>&1 || die "缺少 cmake: 请先 brew install cmake"
+  # cnoke 构建会复用 build/ 缓存; 升级后 koffi 是全新安装, 但缓存过期的
+  # x64 配置会让架构推导失效, 所以先清空再构建 (arm64 平台必需)。
+  rm -rf "$DSH_DIR/node_modules/koffi/build"
+  ( cd "$DSH_DIR/node_modules/koffi" \
+      && CC="$CLANG" CXX="$CLANGXX" "$NODE" ./cnoke.cjs build -P . -D src/koffi --release ) || die "koffi 构建失败"
+  log "6/6 重启服务..."
   start_cmd
 }
 

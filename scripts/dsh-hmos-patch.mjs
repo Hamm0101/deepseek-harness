@@ -97,6 +97,15 @@ const PATCHES = [
       marker: 'staging file away; a staging file that is already gone is success',
     }],
   },
+  {
+    file: 'node_modules/koffi/src/koffi/CMakeLists.txt',
+    patches: [{
+      id: 'P9 koffi CMakeLists HarmonyOS 架构推导',
+      old: 'if(CMAKE_SIZEOF_VOID_P EQUAL 8)\n    # CMAKE_SYSTEM_PROCESSOR is wrong on Windows ARM64\n\n    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch|arm|ARM|AARCH" OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm")',
+      new: 'if(CMAKE_SIZEOF_VOID_P EQUAL 8)\n    # CMAKE_SYSTEM_PROCESSOR is wrong on Windows ARM64\n\n    # HarmonyOS CMake reports CMAKE_SYSTEM_PROCESSOR as "unknown"; derive it\n    # from the actual compiler target (aarch64-unknown-linux-ohos on ARM64 PCs).\n    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "unknown" AND CMAKE_SYSTEM_NAME STREQUAL "HarmonyOS")\n        execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -dumpmachine\n                        OUTPUT_VARIABLE DSH_CXX_MACHINE\n                        OUTPUT_STRIP_TRAILING_WHITESPACE)\n        if(DSH_CXX_MACHINE MATCHES "aarch64|arm64")\n            set(CMAKE_SYSTEM_PROCESSOR "aarch64")\n        elseif(DSH_CXX_MACHINE MATCHES "x86_64|amd64")\n            set(CMAKE_SYSTEM_PROCESSOR "x86_64")\n        endif()\n    endif()\n\n    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch|arm|ARM|AARCH" OR CMAKE_GENERATOR_PLATFORM STREQUAL "ARM64" OR CMAKE_OSX_ARCHITECTURES MATCHES "arm")',
+      marker: 'DSH_CXX_MACHINE',
+    }],
+  },
 ]
 
 let failed = 0
