@@ -78,12 +78,12 @@ const PATCHES = [
     patches: [{
       id: 'P6a attachment import +rename',
       old: 'import { chmod, link, mkdir, open, readFile, unlink } from "node:fs/promises";',
-      new: 'import { chmod, link, mkdir, open, readFile, rename, unlink } from "node:fs/promises";',
-      marker: 'readFile, rename, unlink',
+      new: 'import { chmod, link, mkdir, open, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";',
+      marker: 'readFile, rename, rm, unlink',
     }, {
       id: 'P6b attachment 发布 link→rename 回退',
-      old: '\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;\n\t\t\tif (digest(new Uint8Array(await readFile(target))) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t}',
-      new: '\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (error instanceof Error && "code" in error && error.code === "EPERM") {\n\t\t\t\t// HarmonyOS hmdfs: hard links unsupported — publish via rename\n\t\t\t\t// (content-addressed store, so overwriting is byte-identical).\n\t\t\t\tawait rename(temporary, target);\n\t\t\t} else if (error instanceof Error && "code" in error && error.code === "EEXIST") {\n\t\t\t\tif (digest(new Uint8Array(await readFile(target))) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t\t} else {\n\t\t\t\tthrow error;\n\t\t\t}\n\t\t}',
+      old: '\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;\n\t\t\tif (digest$1(new Uint8Array(await readFile(target))) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t}',
+      new: '\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (error instanceof Error && "code" in error && error.code === "EPERM") {\n\t\t\t\t// HarmonyOS hmdfs: hard links unsupported — publish via rename\n\t\t\t\t// (content-addressed store, so overwriting is byte-identical).\n\t\t\t\tawait rename(temporary, target);\n\t\t\t} else if (error instanceof Error && "code" in error && error.code === "EEXIST") {\n\t\t\t\tif (digest$1(new Uint8Array(await readFile(target))) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t\t} else {\n\t\t\t\tthrow error;\n\t\t\t}\n\t\t}',
       marker: 'content-addressed store, so overwriting is byte-identical',
     }, {
       id: 'P7 attachment ensureDurableDirectory 祖先受限停止上行',
