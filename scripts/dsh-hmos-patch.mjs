@@ -106,6 +106,24 @@ const PATCHES = [
       marker: 'DSH_CXX_MACHINE',
     }],
   },
+  {
+    file: 'node_modules/@deepseek-ai/node-addon-system/lib/flock.js',
+    patches: [{
+      id: 'P10 flock openharmony 降级为成功桩',
+      old: "    const { platform, arch } = process;\n    if (platform !== 'linux' && platform !== 'darwin') {\n        throw Object.assign(new Error(`flock is not supported on ${platform}-${arch}`), {\n            code: 'ERR_FLOCK_UNSUPPORTED_PLATFORM',\n            syscall: 'flock',\n        });\n    }",
+      new: "    const { platform, arch } = process;\n    if (platform !== 'linux' && platform !== 'darwin') {\n        // HarmonyOS (openharmony-arm64): no native OHOS flock addon and\n        // hmdfs refuses flock(2). Degrade to immediate success, matching the\n        // browser worker's single-process stub: the in-process write claim\n        // still excludes every writer inside this process.\n        binding = { tryLock(_fd, done) { done(0); } };\n        return binding;\n    }",
+      marker: 'Degrade to immediate success',
+    }],
+  },
+  {
+    file: 'node_modules/@deepseek-ai/dsh-session-persistence-jsonl/lib/index.js',
+    patches: [{
+      id: 'P11 会话世代发布 link→rename 回退(EPERM)',
+      old: '\tlstat: (path) => lstat(path),\n\tlink,\n\trm: (path) => rm(path, { force: true })',
+      new: '\tlstat: (path) => lstat(path),\n\tlink: async (source, target) => {\n\t\ttry {\n\t\t\tawait link(source, target);\n\t\t} catch (error) {\n\t\t\tif (!(error instanceof Error && (error.code === "EPERM" || error.code === "ENOTSUP"))) throw error;\n\t\t\t// HarmonyOS hmdfs: hard links unsupported. Preserve the no-replace\n\t\t\t// contract by re-checking the target, then publish via rename.\n\t\t\tlet existing = null;\n\t\t\ttry {\n\t\t\t\texisting = await lstat(target);\n\t\t\t} catch (statError) {\n\t\t\t\tif (!(statError instanceof Error && (statError.code === "ENOENT" || statError.code === "ENOTDIR"))) throw error;\n\t\t\t}\n\t\t\tif (existing !== null) {\n\t\t\t\tconst conflict = new Error(`EEXIST: target already exists: ${target}`);\n\t\t\t\tconflict.code = "EEXIST";\n\t\t\t\tthrow conflict;\n\t\t\t}\n\t\t\tawait rename(source, target);\n\t\t}\n\t},\n\trm: (path) => rm(path, { force: true })',
+      marker: 'Preserve the no-replace',
+    }],
+  },
 ]
 
 let failed = 0
