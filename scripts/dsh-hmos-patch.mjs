@@ -36,9 +36,9 @@ const PATCHES = [
     file: 'node_modules/@deepseek-ai/dsh-session-persistence-jsonl/lib/index.js',
     patches: [{
       id: 'P2a import link→rename',
-      old: 'import { link, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, truncate } from "node:fs/promises";',
-      new: 'import { rename, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, truncate } from "node:fs/promises";',
-      marker: 'import { rename, mkdir',
+      old: 'import { link, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rm, stat, truncate } from "node:fs/promises";',
+      new: 'import { link, lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rename, rm, stat, truncate } from "node:fs/promises";',
+      marker: 'realpath, rename, rm',
     }, {
       id: 'P2b 发布 link(tmp,finalPath)→rename',
       old: 'await link(tmp, finalPath);',
@@ -82,8 +82,8 @@ const PATCHES = [
       marker: 'readFile, rename, rm, unlink',
     }, {
       id: 'P6b attachment 发布 link→rename 回退',
-      old: '\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;\n\t\t\tif (digest$1(new Uint8Array(await readFile(target))) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t}',
-      new: '\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (error instanceof Error && "code" in error && error.code === "EPERM") {\n\t\t\t\t// HarmonyOS hmdfs: hard links unsupported — publish via rename\n\t\t\t\t// (content-addressed store, so overwriting is byte-identical).\n\t\t\t\tawait rename(temporary, target);\n\t\t\t} else if (error instanceof Error && "code" in error && error.code === "EEXIST") {\n\t\t\t\tif (digest$1(new Uint8Array(await readFile(target))) !== sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t\t} else {\n\t\t\t\tthrow error;\n\t\t\t}\n\t\t}',
+      old: '\t\t\tawait link(staged.path, target);\n\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;\n\t\t\tif (await digestFile(target) !== staged.sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t}',
+      new: '\t\t\tawait link(staged.path, target);\n\t\t} catch (error) {\n\t\t\t/* v8 ignore next -- Private same-filesystem directories make EEXIST the only recoverable link race. */\n\t\t\tif (error instanceof Error && "code" in error && error.code === "EPERM") {\n\t\t\t\t// HarmonyOS hmdfs: hard links unsupported — publish via rename\n\t\t\t\t// (content-addressed store, so overwriting is byte-identical).\n\t\t\t\tawait rename(staged.path, target);\n\t\t\t} else if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;\n\t\t\telse if (await digestFile(target) !== staged.sha256) throw new AttachmentError("Stored attachment failed integrity verification.", "ATTACHMENT_CORRUPT");\n\t\t}',
       marker: 'content-addressed store, so overwriting is byte-identical',
     }, {
       id: 'P7 attachment ensureDurableDirectory 祖先受限停止上行',
@@ -92,8 +92,8 @@ const PATCHES = [
       marker: 'stop the ascent instead of failing the whole save',
     }, {
       id: 'P8 attachment rename 发布后容忍 unlink ENOENT',
-      old: '\t\tawait syncDirectory(bucket);\n\t\tawait syncDirectory(join(root, "objects"));\n\t\tawait unlink(temporary);\n\t} catch (error) {',
-      new: '\t\tawait syncDirectory(bucket);\n\t\tawait syncDirectory(join(root, "objects"));\n\t\t// The EPERM fallback above publishes via rename, which MOVES the\n\t\t// staging file away; a staging file that is already gone is success.\n\t\tawait unlink(temporary).catch((error) => {\n\t\t\tif (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;\n\t\t});\n\t} catch (error) {',
+      old: '\t\tawait unlink(staged.path);\n\t\tawait chmod(target, 256);',
+      new: '\t\t// The EPERM fallback above publishes via rename, which MOVES the\n\t\t// staging file away; a staging file that is already gone is success.\n\t\tawait unlink(staged.path).catch((error) => {\n\t\t\tif (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;\n\t\t});\n\t\tawait chmod(target, 256);',
       marker: 'staging file away; a staging file that is already gone is success',
     }],
   },
